@@ -13,8 +13,6 @@ $source = q('fund_source');
 
 $list = rows($db, "SELECT * FROM investments$where ORDER BY inv_date IS NULL, inv_date DESC, id DESC", $params);
 $sum = scalar($db, "SELECT COALESCE(SUM(amount),0) FROM investments$where", $params);
-$allEntries = scalar($db, 'SELECT COALESCE(SUM(amount),0) FROM investments');
-
 // The investment is the partner money that went out as expenses; the sheet's own
 // summary tranches stay below as reference (they also carry Giftzy's own money).
 $shopSpend = scalar($db, "SELECT COALESCE(SUM(amount),0) FROM expenses WHERE fund_source = 'Shop'");
@@ -22,19 +20,25 @@ $selfSpend = rows($db, "SELECT fund_source, SUM(amount) t FROM expenses
                         WHERE fund_source IN ('Sowji','Lavanya') GROUP BY fund_source");
 $selfTotal = array_sum(array_column($selfSpend, 't'));
 
-// Partner expenses added in the app are not part of any sheet tranche, so they go
-// in as one live row and the entries keep adding up to the investment above.
-$sinceSheet = round($selfTotal - $allEntries, 2);
-if ($source === '' && abs($sinceSheet) >= 0.01) {
-    array_unshift($list, [
-        'id' => 0,
-        'inv_date' => null,
-        'purpose' => 'Added in the app since the sheet',
-        'amount' => $sinceSheet,
-        'fund_source' => 'Other',
-        'notes' => "partner expenses recorded here after the sheet import",
-    ]);
-    $sum += $sinceSheet;
+// Partner expenses added in the app are not part of any sheet tranche, so they come
+// in as one live row per category and the entries keep adding up to the investment above.
+$liveRows = rows($db, "SELECT COALESCE(NULLIF(category,''), 'Uncategorised') c,
+                              SUM(amount) t, COUNT(*) n
+                       FROM expenses
+                       WHERE fund_source IN ('Sowji','Lavanya') AND source_sheet IS NULL
+                       GROUP BY c ORDER BY t DESC");
+if ($source === '') {
+    foreach (array_reverse($liveRows) as $r) {
+        array_unshift($list, [
+            'id' => 0,
+            'inv_date' => null,
+            'purpose' => $r['c'],
+            'amount' => $r['t'],
+            'fund_source' => 'Other',
+            'notes' => $r['n'] . ' partner ' . ($r['n'] == 1 ? 'expense' : 'expenses') . ' added here',
+        ]);
+        $sum += $r['t'];
+    }
 }
 
 // Partner spending is settled between the two as it goes and shared half and half,
