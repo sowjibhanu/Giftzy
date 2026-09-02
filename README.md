@@ -2,7 +2,7 @@
 
 A small PHP + MySQL application that consolidates the GiftZy Investment workbook
 (sales, expenses, investments and monthly collections) into one editable
-place. Plain PHP 8 with PDO and Bootstrap from a CDN — no frameworks, no build
+place. Plain PHP with PDO — no frameworks, no build
 step, so it runs on GoDaddy Linux shared hosting as-is.
 
 ## What is inside
@@ -98,8 +98,20 @@ and cash box.
    the folder structure, then open `https://yourdomain.com/giftzy/`.
 
 `.htaccess` files block direct browsing of `config.php` and of the `lib`,
-`partials` and `install` folders. PHP 8.0 or newer must be selected in cPanel →
-*Select PHP Version* (PDO MySQL is enabled by default).
+`partials` and `install` folders. PHP 7.4 or newer works; the PDO MySQL
+extension must be enabled (cPanel → *Select PHP Version*).
+
+Delete `install/` and `check.php` from the server once the app runs.
+
+## If a page returns HTTP 500
+
+Open `check.php` in the browser: it prints the PHP version, whether `pdo_mysql`
+is enabled, whether `config.php` is present and filled in, and whether every
+table exists. The usual causes are a missing `config.php`, database credentials
+that do not match the ones cPanel created, or `AllowOverride` rejecting an
+`.htaccess` directive — in that last case the Apache error log names the line,
+and the `.htaccess` files can simply be deleted (they only hide files from
+direct browsing).
 
 ## Local run
 
