@@ -9,18 +9,11 @@ if (($_POST['action'] ?? '') === 'delete') {
 }
 
 $source = q('fund_source');
-$category = q('category');
-[$where, $params] = build_where([
-    ['fund_source = ?', $source],
-    ['category = ?', $category],
-]);
-
-$categories = array_column(rows($db, "SELECT DISTINCT category FROM investments
-                                      WHERE category IS NOT NULL AND category <> ''
-                                      ORDER BY category"), 'category');
+[$where, $params] = build_where([['fund_source = ?', $source]]);
 
 $list = rows($db, "SELECT * FROM investments$where ORDER BY inv_date IS NULL, inv_date DESC, id DESC", $params);
 $sum = scalar($db, "SELECT COALESCE(SUM(amount),0) FROM investments$where", $params);
+$allEntries = scalar($db, 'SELECT COALESCE(SUM(amount),0) FROM investments');
 
 // The investment is the partner money that went out as expenses; the sheet's own
 // summary tranches stay below as reference (they also carry Giftzy's own money).
@@ -28,6 +21,21 @@ $shopSpend = scalar($db, "SELECT COALESCE(SUM(amount),0) FROM expenses WHERE fun
 $selfSpend = rows($db, "SELECT fund_source, SUM(amount) t FROM expenses
                         WHERE fund_source IN ('Sowji','Lavanya') GROUP BY fund_source");
 $selfTotal = array_sum(array_column($selfSpend, 't'));
+
+// Partner expenses added in the app are not part of any sheet tranche, so they go
+// in as one live row and the entries keep adding up to the investment above.
+$sinceSheet = round($selfTotal - $allEntries, 2);
+if ($source === '' && abs($sinceSheet) >= 0.01) {
+    array_unshift($list, [
+        'id' => 0,
+        'inv_date' => null,
+        'purpose' => 'Added in the app since the sheet',
+        'amount' => $sinceSheet,
+        'fund_source' => 'Other',
+        'notes' => "partner expenses recorded here after the sheet import",
+    ]);
+    $sum += $sinceSheet;
+}
 
 // Partner spending is settled between the two as it goes and shared half and half,
 // so what is still open is half the gap between their not-yet-settled rows.
@@ -93,13 +101,12 @@ require __DIR__ . '/partials/header.php';
 
 <form class="filters" method="get">
   <?= select_field('fund_source', FUND_SOURCES, $source, 'Any source') ?>
-  <?= select_field('category', $categories, $category, 'Any category') ?>
   <button class="btn">Filter</button>
 </form>
 
 <div class="table-card"><div class="table-scroll">
   <table class="data">
-    <thead><tr><th>Date</th><th>Purpose</th><th class="num">Amount</th><th>Source</th><th>Category</th><th>Notes</th><th></th></tr></thead>
+    <thead><tr><th>Date</th><th>Purpose</th><th class="num">Amount</th><th>Source</th><th>Notes</th><th></th></tr></thead>
     <tbody>
     <?php foreach ($list as $r): ?>
       <tr>
@@ -107,9 +114,11 @@ require __DIR__ . '/partials/header.php';
         <td class="wide"><?= h($r['purpose']) ?></td>
         <td class="num strong"><?= money($r['amount']) ?></td>
         <td><?= pill($r['fund_source']) ?></td>
-        <td><?= h($r['category']) ?></td>
         <td class="dim"><?= h($r['notes']) ?></td>
         <td class="nowrap">
+          <?php if (!$r['id']): ?>
+            <span class="dim">live</span>
+          <?php else: ?>
           <a class="icon-btn" href="investment_form.php?id=<?= (int) $r['id'] ?>" title="Edit" aria-label="Edit">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M14.85 2.85a1.5 1.5 0 012.12 2.12L6 15.94 2.5 17l1.06-3.5L14.85 2.85z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
           </a>
@@ -121,6 +130,7 @@ require __DIR__ . '/partials/header.php';
               <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </form>
+          <?php endif; ?>
         </td>
       </tr>
     <?php endforeach; ?>
