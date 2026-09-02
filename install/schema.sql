@@ -43,11 +43,13 @@ CREATE TABLE IF NOT EXISTS investments (
   id           INT AUTO_INCREMENT PRIMARY KEY,
   inv_date     DATE NULL,
   purpose      VARCHAR(255) NOT NULL,
+  category     VARCHAR(100) DEFAULT NULL,
   amount       DECIMAL(14,2) NOT NULL DEFAULT 0,
   fund_source  ENUM('Sowji','Lavanya','Account','Cash','Shop','Other') NOT NULL DEFAULT 'Sowji',
   notes        VARCHAR(500) DEFAULT NULL,
   created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  KEY idx_inv_date (inv_date)
+  KEY idx_inv_date (inv_date),
+  KEY idx_inv_category (category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Month-by-month collections as recorded in the Amounts sheet, kept editable so

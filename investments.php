@@ -9,7 +9,15 @@ if (($_POST['action'] ?? '') === 'delete') {
 }
 
 $source = q('fund_source');
-[$where, $params] = build_where([['fund_source = ?', $source]]);
+$category = q('category');
+[$where, $params] = build_where([
+    ['fund_source = ?', $source],
+    ['category = ?', $category],
+]);
+
+$categories = array_column(rows($db, "SELECT DISTINCT category FROM investments
+                                      WHERE category IS NOT NULL AND category <> ''
+                                      ORDER BY category"), 'category');
 
 $list = rows($db, "SELECT * FROM investments$where ORDER BY inv_date IS NULL, inv_date DESC, id DESC", $params);
 $sum = scalar($db, "SELECT COALESCE(SUM(amount),0) FROM investments$where", $params);
@@ -85,12 +93,13 @@ require __DIR__ . '/partials/header.php';
 
 <form class="filters" method="get">
   <?= select_field('fund_source', FUND_SOURCES, $source, 'Any source') ?>
+  <?= select_field('category', $categories, $category, 'Any category') ?>
   <button class="btn">Filter</button>
 </form>
 
 <div class="table-card"><div class="table-scroll">
   <table class="data">
-    <thead><tr><th>Date</th><th>Purpose</th><th class="num">Amount</th><th>Source</th><th>Notes</th><th></th></tr></thead>
+    <thead><tr><th>Date</th><th>Purpose</th><th class="num">Amount</th><th>Source</th><th>Category</th><th>Notes</th><th></th></tr></thead>
     <tbody>
     <?php foreach ($list as $r): ?>
       <tr>
@@ -98,6 +107,7 @@ require __DIR__ . '/partials/header.php';
         <td class="wide"><?= h($r['purpose']) ?></td>
         <td class="num strong"><?= money($r['amount']) ?></td>
         <td><?= pill($r['fund_source']) ?></td>
+        <td><?= h($r['category']) ?></td>
         <td class="dim"><?= h($r['notes']) ?></td>
         <td class="nowrap">
           <a class="icon-btn" href="investment_form.php?id=<?= (int) $r['id'] ?>" title="Edit" aria-label="Edit">

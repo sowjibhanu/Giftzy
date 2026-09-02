@@ -8,10 +8,15 @@ if ($id && !$row) {
     redirect('investments.php', 'That investment no longer exists.');
 }
 
+$categories = array_column(rows($db, "SELECT DISTINCT category FROM investments
+                                      WHERE category IS NOT NULL AND category <> ''
+                                      ORDER BY category"), 'category');
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = [
         'inv_date' => post_date('inv_date'),
         'purpose' => post_str('purpose', false),
+        'category' => post_str('category_new') ?? post_str('category'),
         'amount' => post_num('amount'),
         'fund_source' => in_array($_POST['fund_source'] ?? '', FUND_SOURCES, true)
             ? $_POST['fund_source'] : 'Other',
@@ -59,6 +64,14 @@ require __DIR__ . '/partials/header.php';
     <div class="field">
       <label for="fund_source">Source</label>
       <?= select_field('fund_source', FUND_SOURCES, $row['fund_source'] ?? 'Sowji') ?>
+    </div>
+    <div class="field">
+      <label for="category">Category</label>
+      <?= select_field('category', $categories, $row['category'] ?? '', '(none)') ?>
+    </div>
+    <div class="field">
+      <label for="category_new">Or new category</label>
+      <input class="input" name="category_new" id="category_new" value="">
     </div>
     <div class="field wide">
       <label for="notes">Notes</label>
